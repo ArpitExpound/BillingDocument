@@ -5,171 +5,173 @@ sap.ui.define([
     "sap/m/MessageBox",
     "sap/ui/comp/valuehelpdialog/ValueHelpDialog",
     "sap/m/ColumnListItem",
-    "sap/m/Text"
-], function (Controller, JSONModel, MessageToast, MessageBox, ValueHelpDialog, ColumnListItem, Text) {
+    "sap/m/Text",
+    "sap/ui/comp/filterbar/FilterBar",
+    "sap/ui/comp/filterbar/FilterItem",
+    "sap/ui/model/Filter",
+    "sap/ui/model/FilterOperator",
+    "sap/m/Input",
+    "sap/m/DatePicker"
+], function (
+    Controller, JSONModel, MessageToast, MessageBox,
+    ValueHelpDialog, ColumnListItem, Text,
+    FilterBar, FilterItem, Filter, FilterOperator,
+    Input, DatePicker
+) {
     "use strict";
 
     return Controller.extend("soheader.controller.View1", {
 
         onInit: function () {
             const oModel = new JSONModel({
-                salesOrder: "",
-                salesOrderData: {},
-                suggestedOrders: []
+                billingDocument: "",
+                billingDocData: {},
+                billingDocItems: [],
+                suggestedBillingDocs: []
             });
             this.getView().setModel(oModel, "view");
         },
 
-        // Called when Enter is pressed or suggestion is selected
-        onCheckSalesOrder: function () {
+        onCheckBillingDocument: function () {
             const oViewModel = this.getView().getModel("view");
-            const sOrder = oViewModel.getProperty("/salesOrder");
+            const sBillingDoc = oViewModel.getProperty("/billingDocument");
 
-            if (!sOrder) {
-                MessageToast.show("Please enter a Sales Order");
+            if (!sBillingDoc) {
+                MessageToast.show("Please enter a Billing Document");
                 return;
             }
 
-            const oODataModel = this.getView().getModel(); // default OData model
-            if (!oODataModel) {
-                MessageToast.show("OData model not found!");
-                return;
-            }
+            const sServiceUrl = "/sap/opu/odata/sap/API_BILLING_DOCUMENT_SRV";
+            const sHeaderUrl = `${sServiceUrl}/A_BillingDocument('${sBillingDoc}')?$format=json`;
+            const sItemsUrl = `${sServiceUrl}/A_BillingDocument('${sBillingDoc}')/to_Item?$format=json`;
 
-            const sPath = `/ZC_SOHEADER('${sOrder}')`;
-
-            oODataModel.read(sPath, {
+            // Fetch header
+            $.ajax({
+                url: sHeaderUrl,
+                method: "GET",
                 success: function (oData) {
-                    const oResult = oData && oData.results ? oData.results[0] : oData;
-
-                    if (!oResult) {
-                        MessageBox.error("Sales Order not found");
-                        oViewModel.setProperty("/salesOrderData", {});
-                    } else {
-                        oViewModel.setProperty("/salesOrderData", oResult);
-
-                        // Navigate to details page
-                        this.getView().byId("mainPage").setVisible(false);
-                        this.getView().byId("detailsPage").setVisible(true);
+                    if (!oData || !oData.d) {
+                        MessageBox.error("Billing Document not found");
+                        oViewModel.setProperty("/billingDocData", {});
+                        oViewModel.setProperty("/billingDocItems", []);
+                        return;
                     }
+
+                    const oHeader = oData.d;
+                    if (oHeader.CreationDate) {
+                        oHeader.CreationDate = new Date(oHeader.CreationDate).toLocaleDateString();
+                    }
+
+                    oViewModel.setProperty("/billingDocData", oHeader);
+
+                    // Fetch items
+                    $.ajax({
+                        url: sItemsUrl,
+                        method: "GET",
+                        success: function (oItemData) {
+                            let aItems = (oItemData && oItemData.d && oItemData.d.results) || [];
+                            aItems = aItems.map(item => {
+                                if (item.CreationDate) {
+                                    item.CreationDate = new Date(item.CreationDate).toLocaleDateString();
+                                }
+                                return item;
+                            });
+
+                            oViewModel.setProperty("/billingDocItems", aItems);
+
+                            // Navigate to details page
+                            this.getView().byId("mainPage").setVisible(false);
+                            this.getView().byId("detailsPage").setVisible(true);
+                        }.bind(this),
+                        error: function () {
+                            MessageToast.show("Failed to load Item details");
+                            oViewModel.setProperty("/billingDocItems", []);
+                        }
+                    });
                 }.bind(this),
                 error: function () {
-                    MessageBox.error("Sales Order does not exist");
-                    oViewModel.setProperty("/salesOrderData", {});
+                    MessageBox.error("Billing Document does not exist");
+                    oViewModel.setProperty("/billingDocData", {});
+                    oViewModel.setProperty("/billingDocItems", []);
                 }
             });
         },
 
-        // Fetch suggestions dynamically as user types
-        onSalesOrderLiveChange: function (oEvent) {
+        onBillingDocLiveChange: function (oEvent) {
             const sValue = oEvent.getParameter("value");
             const oViewModel = this.getView().getModel("view");
 
             if (!sValue) {
-                oViewModel.setProperty("/suggestedOrders", []);
+                oViewModel.setProperty("/suggestedBillingDocs", []);
                 return;
             }
 
-            const oODataModel = this.getView().getModel(); // default OData model
-            const sPath = "/ZC_SOHEADER";
+            const sServiceUrl = "/sap/opu/odata/sap/API_BILLING_DOCUMENT_SRV";
+            const sUrl = `${sServiceUrl}/A_BillingDocument?$filter=substringof('${encodeURIComponent(sValue)}',BillingDocument)&$top=10&$format=json`;
 
-            oODataModel.read(sPath, {
-                urlParameters: {
-                    "$filter": `substringof('${encodeURIComponent(sValue)}', SalesOrder)`,
-                    "$top": "10"
-                },
+            $.ajax({
+                url: sUrl,
+                method: "GET",
                 success: function (oData) {
-                    const aSuggestions = oData.results.map(item => ({ SalesOrder: item.SalesOrder }));
-                    oViewModel.setProperty("/suggestedOrders", aSuggestions);
+                    const aSuggestions = (oData.d && oData.d.results) ? oData.d.results.map(item => ({ BillingDocument: item.BillingDocument })) : [];
+                    oViewModel.setProperty("/suggestedBillingDocs", aSuggestions);
                 },
                 error: function () {
-                    oViewModel.setProperty("/suggestedOrders", []);
+                    oViewModel.setProperty("/suggestedBillingDocs", []);
                 }
             });
         },
 
-        // F4 Value Help for Sales Order
-        onSalesOrderValueHelp: function () {
+        onBillingDocValueHelp: function () {
             const oView = this.getView();
-            const oODataModel = oView.getModel(); // default OData model
             const oViewModel = oView.getModel("view");
 
             if (!this._oValueHelpDialog) {
 
-                // Create FilterBar
-                const oFilterBar = new sap.ui.comp.filterbar.FilterBar({
+                // FilterBar with multiple filter items
+                const oFilterBar = new FilterBar({
                     search: function () {
                         const aFilters = [];
+                        const sBillingDoc = oView.byId("fBillingDoc").getValue();
+                        if (sBillingDoc) aFilters.push(new Filter("BillingDocument", FilterOperator.Contains, sBillingDoc));
 
-                        const sSalesOrder = oView.byId("fSalesOrder").getValue();
-                        if (sSalesOrder) aFilters.push(new sap.ui.model.Filter("SalesOrder", sap.ui.model.FilterOperator.Contains, sSalesOrder));
-
-                        const sSoldToParty = oView.byId("fSoldToParty").getValue();
-                        if (sSoldToParty) aFilters.push(new sap.ui.model.Filter("SoldToParty", sap.ui.model.FilterOperator.Contains, sSoldToParty));
-
-                        const sPOCustomer = oView.byId("fPOCustomer").getValue();
-                        if (sPOCustomer) aFilters.push(new sap.ui.model.Filter("PurchaseOrderByCustomer", sap.ui.model.FilterOperator.Contains, sPOCustomer));
+                        const sSoldTo = oView.byId("fSoldToParty").getValue();
+                        if (sSoldTo) aFilters.push(new Filter("SoldToParty", FilterOperator.Contains, sSoldTo));
 
                         const sCreationDate = oView.byId("fCreationDate").getValue();
-                        if (sCreationDate) aFilters.push(new sap.ui.model.Filter("CreationDate", sap.ui.model.FilterOperator.EQ, sCreationDate));
+                        if (sCreationDate) aFilters.push(new Filter("CreationDate", FilterOperator.EQ, sCreationDate));
 
-                        const sBillingCode = oView.byId("fBillingCode").getValue();
-                        if (sBillingCode) aFilters.push(new sap.ui.model.Filter("BillingCompanyCode", sap.ui.model.FilterOperator.Contains, sBillingCode));
+                        const sTotalNet = oView.byId("fTotalNet").getValue();
+                        if (sTotalNet) aFilters.push(new Filter("TotalNetAmount", FilterOperator.Contains, sTotalNet));
 
                         const sSalesOrg = oView.byId("fSalesOrg").getValue();
-                        if (sSalesOrg) aFilters.push(new sap.ui.model.Filter("SalesOrganization", sap.ui.model.FilterOperator.Contains, sSalesOrg));
+                        if (sSalesOrg) aFilters.push(new Filter("SalesOrganization", FilterOperator.Contains, sSalesOrg));
 
-                        // Apply filters to table binding
                         const oTable = this._oValueHelpDialog.getTable();
                         const oBinding = oTable.getBinding("items");
-                        oBinding.filter(aFilters);
+                        oBinding.filter(aFilters.length ? new Filter(aFilters, false) : []);
                     }.bind(this)
                 });
 
                 // Add filter fields
-                oFilterBar.addFilterItem(new sap.ui.comp.filterbar.FilterItem({
-                    name: "SalesOrder",
-                    label: "Sales Order",
-                    control: new sap.m.Input(this.createId("fSalesOrder"))
-                }));
-                oFilterBar.addFilterItem(new sap.ui.comp.filterbar.FilterItem({
-                    name: "SoldToParty",
-                    label: "Sold To Party",
-                    control: new sap.m.Input(this.createId("fSoldToParty"))
-                }));
-                oFilterBar.addFilterItem(new sap.ui.comp.filterbar.FilterItem({
-                    name: "PurchaseOrderByCustomer",
-                    label: "PO Customer",
-                    control: new sap.m.Input(this.createId("fPOCustomer"))
-                }));
-                oFilterBar.addFilterItem(new sap.ui.comp.filterbar.FilterItem({
-                    name: "CreationDate",
-                    label: "Creation Date",
-                    control: new sap.m.DatePicker(this.createId("fCreationDate"))
-                }));
-                oFilterBar.addFilterItem(new sap.ui.comp.filterbar.FilterItem({
-                    name: "BillingCompanyCode",
-                    label: "Billing Code",
-                    control: new sap.m.Input(this.createId("fBillingCode"))
-                }));
-                oFilterBar.addFilterItem(new sap.ui.comp.filterbar.FilterItem({
-                    name: "SalesOrganization",
-                    label: "Sales Org",
-                    control: new sap.m.Input(this.createId("fSalesOrg"))
-                }));
+                oFilterBar.addFilterItem(new FilterItem({ name: "BillingDocument", label: "Billing Document", control: new Input(this.createId("fBillingDoc")) }));
+                oFilterBar.addFilterItem(new FilterItem({ name: "SoldToParty", label: "Sold To Party", control: new Input(this.createId("fSoldToParty")) }));
+                oFilterBar.addFilterItem(new FilterItem({ name: "CreationDate", label: "Creation Date", control: new DatePicker(this.createId("fCreationDate")) }));
+                oFilterBar.addFilterItem(new FilterItem({ name: "TotalNetAmount", label: "Total Net Amount", control: new Input(this.createId("fTotalNet")) }));
+                oFilterBar.addFilterItem(new FilterItem({ name: "SalesOrganization", label: "Sales Org", control: new Input(this.createId("fSalesOrg")) }));
 
-                // Create ValueHelpDialog
+                // ValueHelpDialog
                 this._oValueHelpDialog = new ValueHelpDialog({
                     supportMultiselect: false,
-                    key: "SalesOrder",
-                    descriptionKey: "SalesOrder",
-                    title: "Select Sales Order",
+                    key: "BillingDocument",
+                    descriptionKey: "BillingDocument",
+                    title: "Select Billing Document",
                     filterBar: oFilterBar,
                     ok: function (oEvent) {
                         const aTokens = oEvent.getParameter("tokens");
                         if (aTokens.length > 0) {
-                            oViewModel.setProperty("/salesOrder", aTokens[0].getKey());
-                            this.onCheckSalesOrder(); // auto-fetch details
+                            oViewModel.setProperty("/billingDocument", aTokens[0].getKey());
+                            this.onCheckBillingDocument();
                         }
                         this._oValueHelpDialog.close();
                     }.bind(this),
@@ -178,25 +180,22 @@ sap.ui.define([
                     }.bind(this)
                 });
 
-                // Multi-column table inside dialog
                 const oTable = new sap.m.Table({
                     columns: [
-                        new sap.m.Column({ header: new sap.m.Label({ text: "Sales Order" }) }),
+                        new sap.m.Column({ header: new sap.m.Label({ text: "Billing Document" }) }),
                         new sap.m.Column({ header: new sap.m.Label({ text: "Sold To Party" }) }),
-                        new sap.m.Column({ header: new sap.m.Label({ text: "PO Customer" }) }),
                         new sap.m.Column({ header: new sap.m.Label({ text: "Creation Date" }) }),
-                        new sap.m.Column({ header: new sap.m.Label({ text: "Billing Code" }) }),
+                        new sap.m.Column({ header: new sap.m.Label({ text: "Total Net Amount" }) }),
                         new sap.m.Column({ header: new sap.m.Label({ text: "Sales Org" }) })
                     ],
                     items: {
                         path: "/results",
                         template: new ColumnListItem({
                             cells: [
-                                new Text({ text: "{SalesOrder}" }),
+                                new Text({ text: "{BillingDocument}" }),
                                 new Text({ text: "{SoldToParty}" }),
-                                new Text({ text: "{PurchaseOrderByCustomer}" }),
                                 new Text({ text: "{CreationDate}" }),
-                                new Text({ text: "{BillingCompanyCode}" }),
+                                new Text({ text: "{TotalNetAmount}" }),
                                 new Text({ text: "{SalesOrganization}" })
                             ]
                         })
@@ -207,16 +206,25 @@ sap.ui.define([
                 oView.addDependent(this._oValueHelpDialog);
             }
 
-            // Fetch Sales Orders from OData
-            oODataModel.read("/ZC_SOHEADER", {
-                urlParameters: { "$top": "100" }, // initial top records
+            // Fetch value help data
+            const sServiceUrl = "/sap/opu/odata/sap/API_BILLING_DOCUMENT_SRV";
+            $.ajax({
+                url: `${sServiceUrl}/A_BillingDocument?$top=100&$format=json`,
+                method: "GET",
                 success: function (oData) {
-                    const oDialogModel = new JSONModel(oData);
+                    let aResults = (oData.d && oData.d.results) || [];
+                    aResults.forEach(item => {
+                        if (item.CreationDate) {
+                            item.CreationDate = new Date(item.CreationDate).toLocaleDateString();
+                        }
+                    });
+
+                    const oDialogModel = new JSONModel({ results: aResults });
                     this._oValueHelpDialog.setModel(oDialogModel);
                     this._oValueHelpDialog.open();
                 }.bind(this),
                 error: function () {
-                    MessageBox.error("Error fetching Sales Orders for F4");
+                    MessageBox.error("Error fetching Billing Documents for F4");
                 }
             });
         },
@@ -226,8 +234,9 @@ sap.ui.define([
             this.getView().byId("mainPage").setVisible(true);
 
             const oViewModel = this.getView().getModel("view");
-            oViewModel.setProperty("/salesOrder", "");
-            oViewModel.setProperty("/salesOrderData", {});
+            oViewModel.setProperty("/billingDocument", "");
+            oViewModel.setProperty("/billingDocData", {});
+            oViewModel.setProperty("/billingDocItems", []);
         }
 
     });

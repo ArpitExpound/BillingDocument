@@ -8,58 +8,88 @@
     <!-- Main Page -->
     <Page id="mainPage" title="{i18n>title}" showNavButton="false">
         <content>
-            <Panel headerText="Sales Order Check" expandable="false" class="sapUiResponsiveMargin">
+            <Panel headerText="Billing Document Check" expandable="false" class="sapUiResponsiveMargin">
                 <form:SimpleForm editable="true" labelSpanL="4" labelSpanM="4" columnsL="2" columnsM="2">
-                    <Label text="Enter Sales Order:"/>
-                    <Input 
-                        id="salesOrderInput"
-                        value="{view>/salesOrder}"
-                        placeholder="Sales Order ID"
-                        width="200px"
-                        showSuggestion="true"
-                        showValueHelp="true" 
-                        submit="onCheckSalesOrder"
-                        liveChange="onSalesOrderLiveChange"
-                        valueHelpRequest="onSalesOrderValueHelp"
-                        suggestionItems="{view>/suggestedOrders}">
-                        <core:Item text="{view>SalesOrder}" />
-                    </Input>
+                    <Label text="Enter Billing Document"/>
+                        <Input 
+                            id="billingDocInput"
+                            value="{view>/billingDocument}"
+                            placeholder="Billing Document ID"
+                            width="200px"
+                            showSuggestion="true"
+                            showValueHelp="true" 
+                            submit="onCheckBillingDocument"
+                            liveChange="onBillingDocLiveChange"
+                            valueHelpRequest="onBillingDocValueHelp"
+                            suggestionItems="{view>/suggestedBillingDocs}">
+                            <core:Item text="{view>BillingDocument}" />
+                        </Input>
+
                 </form:SimpleForm>
             </Panel>
         </content>
     </Page>
 
     <!-- Details Page -->
-    <Page id="detailsPage" title="Sales Order Details" showNavButton="true" navButtonPress="onNavBack">
+    <Page id="detailsPage" title="Billing Document Details" showNavButton="true" navButtonPress="onNavBack">
     <content>
-        <Panel headerText="Values" expandable="false" class="sapUiResponsiveMargin">
+        <Panel headerText="Header Details" expandable="false" class="sapUiResponsiveMargin">
             <HBox justifyContent="SpaceBetween" width="75%" >
                 <!-- Left Side -->
                 <VBox renderType="Bare" width="150%" class="sapUiSmallMarginEnd">
-                    <Label text="Sales Order:"/>
-                    <Text text="{view>/salesOrderData/SalesOrder}"/>
- 
+                    <Label text="Billing Document:"/>
+                    <Text text="{view>/billingDocData/BillingDocument}"/>
+
                     <Label text="Sold To Party:"/>
-                    <Text text="{view>/salesOrderData/SoldToParty}"/>
- 
-                    <Label text="Purchase Order By Customer:"/>
-                    <Text text="{view>/salesOrderData/PurchaseOrderByCustomer}"/>
+                    <Text text="{view>/billingDocData/SoldToParty}"/>
+
+
                 </VBox>
  
                 <!-- Right Side -->
                 <VBox renderType="Bare" width="100%" class="sapUiSmallMarginStart">
-                    <Label text="Billing Company Code:"/>
-                    <Text text="{view>/salesOrderData/BillingCompanyCode}"/>
- 
                     <Label text="Sales Organization:"/>
-                    <Text text="{view>/salesOrderData/SalesOrganization}"/>
+                    <Text text="{view>/billingDocData/SalesOrganization}"/>
 
                     <Label text="Creation Date:"/>
-                    <Text text="{view>/salesOrderData/CreationDate}"/>
+                    <Text text="{view>/billingDocData/CreationDate}"/>
+
+                    <Label text="Total Net Amount:"/>
+                    <Text text="{view>/billingDocData/TotalNetAmount}"/>
+
  
                 </VBox>
             </HBox>
         </Panel>
+
+        <Panel id="itemsPanel" headerText="Item Details" expandable="true" expanded="true">
+            <Table
+                id="itemsTable"
+                items="{view>/billingDocItems}">
+                <columns>
+                    <Column><Text text="Billing Document"/></Column>
+                    <Column><Text text="Item"/></Column>
+                    <Column><Text text="Material"/></Column>
+                    <Column><Text text="Batch"/></Column>
+                    <Column><Text text="Plant"/></Column>
+                    <Column><Text text="Storage Location"/></Column>
+                </columns>
+                <items>
+                    <ColumnListItem>
+                        <cells>
+                            <Text text="{view>BillingDocument}"/>
+                            <Text text="{view>BillingDocumentItem}"/>
+                            <Text text="{view>Material}"/>
+                            <Text text="{view>Batch}"/>
+                            <Text text="{view>Plant}"/>
+                            <Text text="{view>StorageLocation}"/>
+                        </cells>
+                    </ColumnListItem>
+                </items>
+            </Table>
+        </Panel>
+
+
     </content>
 </Page>
 
