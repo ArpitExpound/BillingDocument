@@ -1,0 +1,67 @@
+<mvc:View
+    controllerName="soheader.controller.View1"
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns="sap.m"
+    xmlns:form="sap.ui.layout.form"
+    xmlns:core="sap.ui.core">
+
+    <!-- Main Page -->
+    <Page id="mainPage" title="{i18n>title}" showNavButton="false">
+        <content>
+            <Panel headerText="Sales Order Check" expandable="false" class="sapUiResponsiveMargin">
+                <form:SimpleForm editable="true" labelSpanL="4" labelSpanM="4" columnsL="2" columnsM="2">
+                    <Label text="Enter Sales Order:"/>
+                    <Input 
+                        id="salesOrderInput"
+                        value="{view>/salesOrder}"
+                        placeholder="Sales Order ID"
+                        width="200px"
+                        showSuggestion="true"
+                        showValueHelp="true" 
+                        submit="onCheckSalesOrder"
+                        liveChange="onSalesOrderLiveChange"
+                        valueHelpRequest="onSalesOrderValueHelp"
+                        suggestionItems="{view>/suggestedOrders}">
+                        <core:Item text="{view>SalesOrder}" />
+                    </Input>
+                </form:SimpleForm>
+            </Panel>
+        </content>
+    </Page>
+
+    <!-- Details Page -->
+    <Page id="detailsPage" title="Sales Order Details" showNavButton="true" navButtonPress="onNavBack">
+    <content>
+        <Panel headerText="Values" expandable="false" class="sapUiResponsiveMargin">
+            <HBox justifyContent="SpaceBetween" width="75%" >
+                <!-- Left Side -->
+                <VBox renderType="Bare" width="150%" class="sapUiSmallMarginEnd">
+                    <Label text="Sales Order:"/>
+                    <Text text="{view>/salesOrderData/SalesOrder}"/>
+ 
+                    <Label text="Sold To Party:"/>
+                    <Text text="{view>/salesOrderData/SoldToParty}"/>
+ 
+                    <Label text="Purchase Order By Customer:"/>
+                    <Text text="{view>/salesOrderData/PurchaseOrderByCustomer}"/>
+                </VBox>
+ 
+                <!-- Right Side -->
+                <VBox renderType="Bare" width="100%" class="sapUiSmallMarginStart">
+                    <Label text="Billing Company Code:"/>
+                    <Text text="{view>/salesOrderData/BillingCompanyCode}"/>
+ 
+                    <Label text="Sales Organization:"/>
+                    <Text text="{view>/salesOrderData/SalesOrganization}"/>
+
+                    <Label text="Creation Date:"/>
+                    <Text text="{view>/salesOrderData/CreationDate}"/>
+ 
+                </VBox>
+            </HBox>
+        </Panel>
+    </content>
+</Page>
+
+
+</mvc:View>
